@@ -58,6 +58,21 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     }
 
     async function handleCloseMonth() {
+        // Skip validation for units that don't do calculation in Barão Real
+        const currentBuilding = buildings.find(b => b.id === selectedBuilding)
+        const isBaraoReal = currentBuilding?.name === 'Barão Real'
+        const disabledUnits = ['304', '504', '701']
+
+        const incomplete = readings.filter(r => {
+            if (isBaraoReal && disabledUnits.includes(r.unitNumber)) return false
+            return r.leitura_atual === 0
+        })
+
+        if (incomplete.length > 0) {
+            alert(`Existem ${incomplete.length} unidades sem leitura atual preenchida.`)
+            return
+        }
+
         if (!confirm('Deseja realmente fechar o mês? Esta ação criará registros para o próximo mês.')) return
 
         try {
@@ -72,6 +87,8 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     const currentBuilding = buildings.find(b => b.id === selectedBuilding)
     const buildingName = currentBuilding?.name || ''
     const isResidencialDias = buildingName === 'Residencial Dias'
+    const isBaraoReal = buildingName === 'Barão Real'
+    const disabledUnits = ['304', '504', '701']
 
     return (
         <div className="container" style={{ paddingBottom: '2rem' }}>
@@ -176,11 +193,13 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                         </thead>
                         <tbody>
                             {readings.map((r) => {
-                                const consumo = (r.leitura_atual - r.leitura_anterior).toFixed(3)
-                                const isComplete = r.leitura_atual > 0
+                                const isDisabled = isBaraoReal && disabledUnits.includes(r.unitNumber)
+                                const consumo = isDisabled ? 'N/A' : (r.leitura_atual - r.leitura_anterior).toFixed(3)
+                                const valorExibicao = isDisabled ? 0 : r.valor_calculado
+                                const isComplete = isDisabled || r.leitura_atual > 0
 
                                 return (
-                                    <tr key={r.unitId}>
+                                    <tr key={r.unitId} style={isDisabled ? { backgroundColor: 'rgba(0,0,0,0.03)', opacity: 0.8 } : {}}>
                                         <td>
                                             <input
                                                 type="text"
@@ -199,10 +218,12 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                                 step="0.001"
                                                 className="reading-input no-print"
                                                 defaultValue={r.leitura_anterior || ''}
+                                                disabled={isDisabled}
                                                 onBlur={(e) => handlePreviousReadingChange(r.unitId, e.target.value)}
+                                                placeholder={isDisabled ? '-' : ''}
                                             />
                                             <span className="print-only" style={{ display: 'none' }}>
-                                                {r.leitura_anterior.toFixed(3)}
+                                                {isDisabled ? '-' : r.leitura_anterior.toFixed(3)}
                                             </span>
                                         </td>
                                         <td>
@@ -211,16 +232,20 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                                 step="0.001"
                                                 className="reading-input no-print"
                                                 defaultValue={r.leitura_atual || ''}
+                                                disabled={isDisabled}
                                                 onBlur={(e) => handleReadingChange(r.unitId, e.target.value)}
+                                                placeholder={isDisabled ? 'SEM GÁS' : ''}
                                             />
                                             <span className="print-only" style={{ display: 'none' }}>
-                                                {r.leitura_atual.toFixed(3)}
+                                                {isDisabled ? 'SEM GÁS' : r.leitura_atual.toFixed(3)}
                                             </span>
                                         </td>
                                         <td>{consumo}</td>
-                                        <td className="currency">{formatCurrency(r.valor_calculado)}</td>
+                                        <td className="currency">{formatCurrency(valorExibicao)}</td>
                                         <td className="no-print">
-                                            {isComplete ? (
+                                            {isDisabled ? (
+                                                <span className="status-badge" style={{ backgroundColor: '#e2e8f0', color: '#64748b' }}>Isento</span>
+                                            ) : isComplete ? (
                                                 <span className="status-badge status-done">Concluído</span>
                                             ) : (
                                                 <span className="status-badge status-pending">Pendente</span>
