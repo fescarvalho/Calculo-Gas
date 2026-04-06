@@ -1,23 +1,31 @@
-import { Pool } from 'pg'
+import { Pool, types } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
+
+// Force numeric and bigint to be treated as numbers if needed
+// types.setTypeParser(1700, (val) => parseFloat(val))
 
 const connectionString = process.env.DATABASE_URL
 
 const prismaClientSingleton = () => {
     if (!connectionString) {
-        throw new Error('DATABASE_URL is not defined in environment variables')
+        throw new Error('DATABASE_URL is not defined')
     }
 
+    // Workaround for Vercel/Supabase TLS: some environments require explicit SSL config
+    // while others might conflict with pool settings.
     const pool = new Pool({
         connectionString,
-        max: 1, // Recommended for local dev, Vercel manages its own scaling
+        max: 5,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000,
         ssl: {
-            rejectUnauthorized: false
-        }
+            rejectUnauthorized: false,
+        },
     })
 
     const adapter = new PrismaPg(pool)
+
     return new PrismaClient({
         adapter,
         log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
