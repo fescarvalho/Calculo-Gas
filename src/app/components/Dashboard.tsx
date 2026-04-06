@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useTransition } from 'react'
 import { getReadings, updateReading, closeMonth, updatePreviousReading, updateUnitNumber } from '../actions'
 import { formatCurrency } from '@/lib/calculations'
-import { Printer, Calendar, Building, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Printer, Calendar, Building, CheckCircle2, AlertCircle, Info } from 'lucide-react'
 
 interface Building {
     id: string
@@ -69,10 +69,12 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
         }
     }
 
-    const buildingName = buildings.find(b => b.id === selectedBuilding)?.name || ''
+    const currentBuilding = buildings.find(b => b.id === selectedBuilding)
+    const buildingName = currentBuilding?.name || ''
+    const isResidencialDias = buildingName === 'Residencial Dias'
 
     return (
-        <div className="container">
+        <div className="container" style={{ paddingBottom: '2rem' }}>
             <div className="header no-print">
                 <div>
                     <h1 className="title">Gestão de Gás</h1>
@@ -128,24 +130,47 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                 </div>
             )}
 
-            <div className="print-header" style={{ display: 'none', marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '24pt', textAlign: 'center' }}>Relatório de Consumo de Gás</h1>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', borderBottom: '2px solid black', paddingBottom: '0.5rem' }}>
-                    <span><strong>Prédio:</strong> {buildingName}</span>
-                    <span><strong>Mês de Referência:</strong> {selectedMonth}</span>
+            {isResidencialDias && (
+                <div className="no-print" style={{
+                    padding: '1rem',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    color: 'var(--primary)',
+                    borderRadius: '0.5rem',
+                    marginBottom: '1.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    fontWeight: 600,
+                    border: '1px solid rgba(52, 152, 219, 0.2)'
+                }}>
+                    <Info size={20} />
+                    CAMARA MUNICIPAL DE NATIVIDADE - R$ 380,00
                 </div>
+            )}
+
+            <div className="print-header" style={{ display: 'none' }}>
+                <h1 style={{ fontSize: '20pt', textAlign: 'center', margin: '0 0 10pt 0' }}>Relatório de Consumo de Gás</h1>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1.5px solid black', paddingBottom: '3pt', marginBottom: '10pt' }}>
+                    <span><strong>Prédio:</strong> {buildingName}</span>
+                    <span><strong>Mês:</strong> {selectedMonth}</span>
+                </div>
+                {isResidencialDias && (
+                    <div style={{ fontSize: '11pt', fontWeight: 'bold', marginBottom: '8pt' }}>
+                        Lembrete: CAMARA MUNICIPAL DE NATIVIDADE - R$ 380,00
+                    </div>
+                )}
             </div>
 
-            <div className="card">
+            <div className={isResidencialDias ? "card card-res-dias" : "card"}>
                 <div className="table-container">
-                    <table>
+                    <table className="print-table">
                         <thead>
                             <tr>
                                 <th>Unidade</th>
-                                <th>Leitura Anterior</th>
-                                <th>Leitura Atual</th>
+                                <th>Anterior</th>
+                                <th>Atual</th>
                                 <th>Consumo</th>
-                                <th>Valor Calculado</th>
+                                <th>Valor</th>
                                 <th className="no-print">Status</th>
                             </tr>
                         </thead>
@@ -160,7 +185,7 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                             <input
                                                 type="text"
                                                 className="reading-input no-print"
-                                                style={{ width: '80px', textAlign: 'left' }}
+                                                style={{ width: '60px', textAlign: 'left' }}
                                                 defaultValue={r.unitNumber}
                                                 onBlur={(e) => handleUnitNumberChange(r.unitId, e.target.value)}
                                             />
@@ -209,22 +234,50 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                 </div>
             </div>
 
-            <div style={{ marginTop: '2rem', textAlign: 'right' }}>
-                <div style={{ display: 'inline-block', backgroundColor: 'var(--card-bg)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border)' }}>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total do Prédio</p>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>
-                        {formatCurrency(readings.reduce((acc, curr) => acc + curr.valor_calculado, 0))}
-                    </p>
+            {isResidencialDias && (
+                <div className="obs-box" style={{
+                    marginTop: '1rem',
+                    padding: '0.75rem',
+                    backgroundColor: '#fef3c7',
+                    color: '#92400e',
+                    borderRadius: '0.4rem',
+                    border: '1px solid #fcd34d',
+                    fontSize: '0.9rem'
+                }}>
+                    <strong>OBS:</strong> SEPARAR GAS DOS APTS: 101, 102, 104, 304, 404, 501
                 </div>
-            </div>
+            )}
 
             <style jsx>{`
-        @media print {
-          .print-only { display: inline !important; }
-          .reading-input { display: none !important; }
-          .print-header { display: block !important; }
-        }
-      `}</style>
+                @media print {
+                    @page {
+                        margin: 0.5cm;
+                        size: A4 portrait;
+                    }
+                    .container { padding: 0 !important; width: 100% !important; max-width: 100% !important; }
+                    .card { 
+                        box-shadow: none !important; 
+                        border: none !important; 
+                        padding: 0 !important;
+                        background: transparent !important;
+                    }
+                    .print-only { display: inline !important; }
+                    .reading-input { display: none !important; }
+                    .print-header { display: block !important; }
+                    th, td { 
+                        padding: 4pt 6pt !important; 
+                        font-size: 10pt !important;
+                        border: 1px solid #ddd !important;
+                    }
+                    .currency { font-weight: bold; }
+                    .obs-box { 
+                        border-color: #000 !important; 
+                        background-color: transparent !important;
+                        margin-top: 15pt !important;
+                        font-size: 10pt !important;
+                    }
+                }
+            `}</style>
         </div>
     )
 }

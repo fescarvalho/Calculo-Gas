@@ -8,22 +8,24 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  const fullUnitList = [
+    '101', '102', '103', '104',
+    '201', '202', '203', '204',
+    '301', '302', '303', '304',
+    '401', '402', '403', '404',
+    '501', '502', '503', '504',
+    '601', '602', '603', '604',
+    '701'
+  ];
+
   const buildings = [
     {
       name: 'Residencial Dias',
-      units: [
-        '101', '102', '103', '104',
-        '201', '202', '203', '204',
-        '301', '302', '303', '304',
-        '401', '402', '403', '404',
-        '501', '502', '503', '504',
-        '601', '602', '603', '604',
-        '701'
-      ]
+      units: fullUnitList.slice(0, 20) // Up to 504
     },
     {
       name: 'Barão Real',
-      units: ['101', '102', '103', '104', '105', '106', '107', '108', '109', '110']
+      units: fullUnitList // Full list up to 701
     },
   ];
 
@@ -36,6 +38,7 @@ async function main() {
 
     console.log(`Building ${building.name} created/updated.`);
 
+    // Create/Update units
     for (const unitNumber of b.units) {
       await prisma.unit.upsert({
         where: {
@@ -51,9 +54,20 @@ async function main() {
         },
       });
     }
+
+    // Cleanup units that shouldn't be there
+    const deleted = await prisma.unit.deleteMany({
+      where: {
+        buildingId: building.id,
+        number: { notIn: b.units }
+      }
+    });
+    if (deleted.count > 0) {
+      console.log(`Deleted ${deleted.count} extra units from ${building.name}.`);
+    }
   }
 
-  console.log('Seed completed successfully');
+  console.log('Seed and cleanup completed successfully');
 }
 
 main()
