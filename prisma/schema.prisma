@@ -1,0 +1,39 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Building {
+  id    String @id @default(uuid())
+  name  String @unique
+  units Unit[]
+}
+
+model Unit {
+  id         String    @id @default(uuid())
+  number     String
+  buildingId String
+  building   Building  @relation(fields: [buildingId], references: [id])
+  readings   Reading[]
+
+  @@unique([number, buildingId])
+}
+
+model Reading {
+  id               String   @id @default(uuid())
+  unidade_id       String
+  unit             Unit     @relation(fields: [unidade_id], references: [id])
+  leitura_anterior Float
+  leitura_atual    Float
+  valor_calculado  Float
+  mes_referencia   String   // Format: "YYYY-MM"
+  createdAt        DateTime @default(now())
+
+  @@unique([unidade_id, mes_referencia])
+}
