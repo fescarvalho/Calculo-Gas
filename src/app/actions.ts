@@ -126,6 +126,13 @@ export async function updateUnitNumber(unitId: string, newNumber: string) {
 }
 
 export async function closeMonth(buildingId: string, currentMonth: string) {
+    // Get building name for specific rules
+    const building = await prisma.building.findUnique({
+        where: { id: buildingId }
+    })
+    const isBaraoReal = building?.name === 'Barão Real'
+    const disabledUnits = ['304', '504', '701']
+
     // 1. Validate all units have reading
     const units = await prisma.unit.findMany({
         where: { buildingId },
@@ -136,7 +143,10 @@ export async function closeMonth(buildingId: string, currentMonth: string) {
         }
     })
 
-    const incomplete = units.filter(u => u.readings.length === 0 || u.readings[0].leitura_atual === 0)
+    const incomplete = units.filter(u => {
+        if (isBaraoReal && disabledUnits.includes(u.number)) return false
+        return u.readings.length === 0 || u.readings[0].leitura_atual === 0
+    })
 
     if (incomplete.length > 0) {
         throw new Error(`Existem ${incomplete.length} unidades sem leitura atual preenchida.`)
