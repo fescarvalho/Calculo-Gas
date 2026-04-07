@@ -199,7 +199,7 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                 const isComplete = isDisabled || r.leitura_atual > 0
 
                                 return (
-                                    <tr key={r.unitId} style={isDisabled ? { backgroundColor: 'rgba(0,0,0,0.03)', opacity: 0.8 } : {}}>
+                                    <tr key={`${r.unitId}-${selectedMonth}`} style={isDisabled ? { backgroundColor: 'rgba(0,0,0,0.03)', opacity: 0.8 } : {}}>
                                         <td>
                                             <input
                                                 type="text"
