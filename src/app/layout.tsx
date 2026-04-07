@@ -15,6 +15,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Cálculo de Gás",
   description: "Cálculo de consumo de gás para condomínios",
+  manifest: "/manifest.json",
+  themeColor: "#10b981",
   icons: {
     icon: [
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
