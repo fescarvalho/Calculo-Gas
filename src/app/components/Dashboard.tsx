@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useTransition } from 'react'
+import React, { useState, useEffect, useTransition, useCallback } from 'react'
 import { getReadings, updateReading, closeMonth, updatePreviousReading, updateUnitNumber } from '../actions'
 import { formatCurrency } from '@/lib/calculations'
 import { Printer, Calendar, Building, CheckCircle2, AlertCircle, Info } from 'lucide-react'
@@ -14,8 +14,8 @@ interface Reading {
     unitId: string
     unitNumber: string
     readingId: string | null
-    leitura_anterior: number
-    leitura_atual: number
+    leitura_anterior: number | string
+    leitura_atual: number | string
     valor_calculado: number
 }
 
@@ -26,27 +26,56 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     const [isPending, startTransition] = useTransition()
     const [message, setMessage] = useState('')
 
+    const loadReadings = useCallback(async () => {
+        const data = await getReadings(selectedBuilding, selectedMonth)
+        setReadings(data)
+    }, [selectedBuilding, selectedMonth])
+
     useEffect(() => {
         if (selectedBuilding && selectedMonth) {
             loadReadings()
         }
-    }, [selectedBuilding, selectedMonth])
-
-    async function loadReadings() {
-        const data = await getReadings(selectedBuilding, selectedMonth)
-        setReadings(data)
-    }
+    }, [selectedBuilding, selectedMonth, loadReadings])
 
     async function handleReadingChange(unitId: string, value: string) {
         const numValue = parseFloat(value) || 0
-        setReadings(prev => prev.map(r => r.unitId === unitId ? { ...r, leitura_atual: numValue } : r))
+        // Update local state immediately for responsiveness
+        setReadings(prev => prev.map(r => {
+            if (r.unitId === unitId) {
+                const anterior = typeof r.leitura_anterior === 'string' ? parseFloat(r.leitura_anterior) || 0 : r.leitura_anterior
+                return {
+                    ...r,
+                    leitura_atual: value, // Store as string to allow decimal point typing
+                    valor_calculado: (numValue - anterior) * 2.5 * 9 / 1000 // Quick local calculation
+                }
+            }
+            return r
+        }))
+    }
+
+    async function handleReadingBlur(unitId: string, value: string) {
+        const numValue = parseFloat(value) || 0
         await updateReading(unitId, selectedMonth, numValue)
-        loadReadings()
+        loadReadings() // Re-sync with server
     }
 
     async function handlePreviousReadingChange(unitId: string, value: string) {
         const numValue = parseFloat(value) || 0
-        setReadings(prev => prev.map(r => r.unitId === unitId ? { ...r, leitura_anterior: numValue } : r))
+        setReadings(prev => prev.map(r => {
+            if (r.unitId === unitId) {
+                const atual = typeof r.leitura_atual === 'string' ? parseFloat(r.leitura_atual) || 0 : r.leitura_atual
+                return {
+                    ...r,
+                    leitura_anterior: value,
+                    valor_calculado: (atual - numValue) * 2.5 * 9 / 1000
+                }
+            }
+            return r
+        }))
+    }
+
+    async function handlePreviousReadingBlur(unitId: string, value: string) {
+        const numValue = parseFloat(value) || 0
         await updatePreviousReading(unitId, selectedMonth, numValue)
         loadReadings()
     }
@@ -65,7 +94,8 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
 
         const incomplete = readings.filter(r => {
             if (isBaraoReal && disabledUnits.includes(r.unitNumber)) return false
-            return r.leitura_atual === 0
+            const atual = typeof r.leitura_atual === 'string' ? parseFloat(r.leitura_atual) || 0 : r.leitura_atual
+            return atual === 0
         })
 
         if (incomplete.length > 0) {
@@ -79,8 +109,8 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
             const result = await closeMonth(selectedBuilding, selectedMonth)
             setMessage(`Mês fechado com sucesso! Próximo mês: ${result.nextMonth}`)
             setSelectedMonth(result.nextMonth)
-        } catch (error: any) {
-            alert(error.message)
+        } catch (error: unknown) {
+            alert(error instanceof Error ? error.message : 'Erro ao fechar o mês')
         }
     }
 
@@ -194,9 +224,12 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                         <tbody>
                             {readings.map((r) => {
                                 const isDisabled = isBaraoReal && disabledUnits.includes(r.unitNumber)
-                                const consumo = isDisabled ? 'N/A' : (r.leitura_atual - r.leitura_anterior).toFixed(3)
+                                const valAnterior = typeof r.leitura_anterior === 'string' ? parseFloat(r.leitura_anterior) || 0 : r.leitura_anterior
+                                const valAtual = typeof r.leitura_atual === 'string' ? parseFloat(r.leitura_atual) || 0 : r.leitura_atual
+
+                                const consumo = isDisabled ? 'N/A' : (valAtual - valAnterior).toFixed(3)
                                 const valorExibicao = isDisabled ? 0 : r.valor_calculado
-                                const isComplete = isDisabled || r.leitura_atual > 0
+                                const isComplete = isDisabled || valAtual > 0
 
                                 return (
                                     <tr key={`${r.unitId}-${selectedMonth}`} style={isDisabled ? { backgroundColor: 'rgba(0,0,0,0.03)', opacity: 0.8 } : {}}>
@@ -214,30 +247,30 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                         </td>
                                         <td>
                                             <input
-                                                type="number"
-                                                step="0.001"
+                                                type="text"
                                                 className="reading-input no-print"
-                                                defaultValue={r.leitura_anterior || ''}
+                                                value={r.leitura_anterior}
                                                 disabled={isDisabled}
-                                                onBlur={(e) => handlePreviousReadingChange(r.unitId, e.target.value)}
+                                                onChange={(e) => handlePreviousReadingChange(r.unitId, e.target.value)}
+                                                onBlur={(e) => handlePreviousReadingBlur(r.unitId, e.target.value)}
                                                 placeholder={isDisabled ? '-' : ''}
                                             />
                                             <span className="print-only" style={{ display: 'none' }}>
-                                                {isDisabled ? '-' : r.leitura_anterior.toFixed(3)}
+                                                {isDisabled ? '-' : valAnterior.toFixed(3)}
                                             </span>
                                         </td>
                                         <td>
                                             <input
-                                                type="number"
-                                                step="0.001"
+                                                type="text"
                                                 className="reading-input no-print"
-                                                defaultValue={r.leitura_atual || ''}
+                                                value={r.leitura_atual}
                                                 disabled={isDisabled}
-                                                onBlur={(e) => handleReadingChange(r.unitId, e.target.value)}
+                                                onChange={(e) => handleReadingChange(r.unitId, e.target.value)}
+                                                onBlur={(e) => handleReadingBlur(r.unitId, e.target.value)}
                                                 placeholder={isDisabled ? 'SEM GÁS' : ''}
                                             />
                                             <span className="print-only" style={{ display: 'none' }}>
-                                                {isDisabled ? 'SEM GÁS' : r.leitura_atual.toFixed(3)}
+                                                {isDisabled ? 'SEM GÁS' : valAtual.toFixed(3)}
                                             </span>
                                         </td>
                                         <td>{consumo}</td>
