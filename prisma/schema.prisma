@@ -21,6 +21,7 @@ model Unit {
   buildingId String
   building   Building  @relation(fields: [buildingId], references: [id])
   readings   Reading[]
+  isento     Boolean   @default(false)
 
   @@unique([number, buildingId])
 }

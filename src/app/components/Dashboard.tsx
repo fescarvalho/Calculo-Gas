@@ -25,6 +25,7 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     const [readings, setReadings] = useState<Reading[]>([])
     const [isPending, startTransition] = useTransition()
     const [message, setMessage] = useState('')
+    const [exemptUnits, setExemptUnits] = useState<Set<string>>(new Set())
 
     const loadReadings = useCallback(async () => {
         const data = await getReadings(selectedBuilding, selectedMonth)
@@ -86,14 +87,28 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
         loadReadings()
     }
 
+    function toggleExempt(unitId: string) {
+        setExemptUnits(prev => {
+            const next = new Set(prev)
+            if (next.has(unitId)) {
+                next.delete(unitId)
+            } else {
+                next.add(unitId)
+            }
+            return next
+        })
+    }
+
     async function handleCloseMonth() {
         const incomplete = readings.filter(r => {
+            if (exemptUnits.has(r.unitId)) return false
             const atual = typeof r.leitura_atual === 'string' ? parseFloat(r.leitura_atual) || 0 : r.leitura_atual
             return atual === 0
         })
 
         if (incomplete.length > 0) {
-            alert(`Existem ${incomplete.length} unidades sem leitura atual preenchida.`)
+            const unitNums = incomplete.map(r => r.unitNumber).join(', ')
+            alert(`Existem ${incomplete.length} unidade(s) sem leitura: ${unitNums}\n\nMarque como "Isento" se não precisar de leitura.`)
             return
         }
 
@@ -212,6 +227,7 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                 <th>Consumo</th>
                                 <th>Valor</th>
                                 <th className="no-print">Status</th>
+                                <th className="no-print" style={{ width: '80px' }}>Isento</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -222,9 +238,10 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                 const consumo = (valAtual - valAnterior).toFixed(3)
                                 const valorExibicao = r.valor_calculado
                                 const isComplete = valAtual > 0
+                                const isExempt = exemptUnits.has(r.unitId)
 
                                 return (
-                                    <tr key={`${r.unitId}-${selectedMonth}`}>
+                                    <tr key={`${r.unitId}-${selectedMonth}`} style={isExempt ? { opacity: 0.55 } : {}}>
                                         <td>
                                             <input
                                                 type="text"
@@ -264,11 +281,35 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                         <td>{consumo}</td>
                                         <td className="currency">{formatCurrency(valorExibicao)}</td>
                                         <td className="no-print">
-                                            {isComplete ? (
+                                            {isExempt ? (
+                                                <span className="status-badge" style={{ backgroundColor: '#e2e8f0', color: '#64748b' }}>Isento</span>
+                                            ) : isComplete ? (
                                                 <span className="status-badge status-done">Concluído</span>
                                             ) : (
                                                 <span className="status-badge status-pending">Pendente</span>
                                             )}
+                                        </td>
+                                        <td className="no-print" style={{ textAlign: 'center' }}>
+                                            <button
+                                                onClick={() => toggleExempt(r.unitId)}
+                                                title={isExempt ? 'Remover isenção' : 'Marcar como isento'}
+                                                style={{
+                                                    width: '28px',
+                                                    height: '28px',
+                                                    borderRadius: '6px',
+                                                    border: isExempt ? '2px solid #94a3b8' : '2px solid #cbd5e1',
+                                                    backgroundColor: isExempt ? '#64748b' : 'transparent',
+                                                    color: isExempt ? '#fff' : '#94a3b8',
+                                                    cursor: 'pointer',
+                                                    fontSize: '14px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    transition: 'all 0.15s ease',
+                                                }}
+                                            >
+                                                {isExempt ? '✓' : '○'}
+                                            </button>
                                         </td>
                                     </tr>
                                 )
