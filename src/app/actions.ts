@@ -167,7 +167,7 @@ export async function closeMonth(buildingId: string, currentMonth: string) {
 
     // 3. Create records for next month
     for (const unit of units) {
-        const currentReading = unit.readings[0].leitura_atual
+        const currentReading = unit.readings[0]?.leitura_atual ?? 0
 
         await prisma.reading.upsert({
             where: {
