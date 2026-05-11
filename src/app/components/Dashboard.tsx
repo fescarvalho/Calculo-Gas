@@ -90,7 +90,7 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
         // Skip validation for units that don't do calculation in Barão Real
         const currentBuilding = buildings.find(b => b.id === selectedBuilding)
         const isBaraoReal = currentBuilding?.name === 'Barão Real'
-        const disabledUnits = ['304', '504', '701']
+        const disabledUnits = ['504', '701']
 
         const incomplete = readings.filter(r => {
             if (isBaraoReal && disabledUnits.includes(r.unitNumber)) return false
@@ -118,7 +118,7 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     const buildingName = currentBuilding?.name || ''
     const isResidencialDias = buildingName === 'Residencial Dias'
     const isBaraoReal = buildingName === 'Barão Real'
-    const disabledUnits = ['304', '504', '701']
+    const disabledUnits = ['504', '701']
 
     return (
         <div className="container" style={{ paddingBottom: '2rem' }}>
