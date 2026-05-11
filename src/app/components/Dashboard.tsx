@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useTransition, useCallback } from 'react'
-import { getReadings, updateReading, closeMonth, updatePreviousReading, updateUnitNumber } from '../actions'
+import { getReadings, updateReading, closeMonth, updatePreviousReading, updateUnitNumber, toggleUnitExempt } from '../actions'
 import { formatCurrency } from '@/lib/calculations'
 import { Printer, Calendar, Building, CheckCircle2, AlertCircle, Info } from 'lucide-react'
 
@@ -13,6 +13,7 @@ interface Building {
 interface Reading {
     unitId: string
     unitNumber: string
+    isento: boolean
     readingId: string | null
     leitura_anterior: number | string
     leitura_atual: number | string
@@ -30,6 +31,8 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     const loadReadings = useCallback(async () => {
         const data = await getReadings(selectedBuilding, selectedMonth)
         setReadings(data)
+        // Sync exempt state from DB
+        setExemptUnits(new Set(data.filter(r => r.isento).map(r => r.unitId)))
     }, [selectedBuilding, selectedMonth])
 
     useEffect(() => {
@@ -90,11 +93,14 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     function toggleExempt(unitId: string) {
         setExemptUnits(prev => {
             const next = new Set(prev)
-            if (next.has(unitId)) {
-                next.delete(unitId)
-            } else {
+            const newValue = !next.has(unitId)
+            if (newValue) {
                 next.add(unitId)
+            } else {
+                next.delete(unitId)
             }
+            // Persist to DB in background
+            toggleUnitExempt(unitId, newValue)
             return next
         })
     }

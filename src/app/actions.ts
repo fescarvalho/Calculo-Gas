@@ -28,6 +28,7 @@ export async function getReadings(buildingId: string, referenceMonth: string) {
         return {
             unitId: unit.id,
             unitNumber: unit.number,
+            isento: unit.isento,
             readingId: reading?.id || null,
             leitura_anterior: reading?.leitura_anterior ?? 0,
             leitura_atual: reading?.leitura_atual ?? 0,
@@ -125,15 +126,16 @@ export async function updateUnitNumber(unitId: string, newNumber: string) {
     revalidatePath('/')
 }
 
-export async function closeMonth(buildingId: string, currentMonth: string) {
-    // Get building name for specific rules
-    const building = await prisma.building.findUnique({
-        where: { id: buildingId }
+export async function toggleUnitExempt(unitId: string, isento: boolean) {
+    await prisma.unit.update({
+        where: { id: unitId },
+        data: { isento }
     })
-    const isBaraoReal = building?.name === 'Barão Real'
-    const disabledUnits = ['304', '504', '701']
+    revalidatePath('/')
+}
 
-    // 1. Validate all units have reading
+export async function closeMonth(buildingId: string, currentMonth: string) {
+    // 1. Validate all units have reading (skip exempt units)
     const units = await prisma.unit.findMany({
         where: { buildingId },
         include: {
@@ -144,12 +146,13 @@ export async function closeMonth(buildingId: string, currentMonth: string) {
     })
 
     const incomplete = units.filter(u => {
-        if (isBaraoReal && disabledUnits.includes(u.number)) return false
+        if (u.isento) return false
         return u.readings.length === 0 || u.readings[0].leitura_atual === 0
     })
 
     if (incomplete.length > 0) {
-        throw new Error(`Existem ${incomplete.length} unidades sem leitura atual preenchida.`)
+        const unitNums = incomplete.map(u => u.number).join(', ')
+        throw new Error(`Existem ${incomplete.length} unidade(s) sem leitura: ${unitNums}`)
     }
 
     // 2. Calculate next month string
