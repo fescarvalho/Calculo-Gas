@@ -87,13 +87,7 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     }
 
     async function handleCloseMonth() {
-        // Skip validation for units that don't do calculation in Barão Real
-        const currentBuilding = buildings.find(b => b.id === selectedBuilding)
-        const isBaraoReal = currentBuilding?.name === 'Barão Real'
-        const disabledUnits = ['504', '701']
-
         const incomplete = readings.filter(r => {
-            if (isBaraoReal && disabledUnits.includes(r.unitNumber)) return false
             const atual = typeof r.leitura_atual === 'string' ? parseFloat(r.leitura_atual) || 0 : r.leitura_atual
             return atual === 0
         })
@@ -118,7 +112,6 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
     const buildingName = currentBuilding?.name || ''
     const isResidencialDias = buildingName === 'Residencial Dias'
     const isBaraoReal = buildingName === 'Barão Real'
-    const disabledUnits = ['504', '701']
 
     return (
         <div className="container" style={{ paddingBottom: '2rem' }}>
@@ -223,16 +216,15 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                         </thead>
                         <tbody>
                             {readings.map((r) => {
-                                const isDisabled = isBaraoReal && disabledUnits.includes(r.unitNumber)
                                 const valAnterior = typeof r.leitura_anterior === 'string' ? parseFloat(r.leitura_anterior) || 0 : r.leitura_anterior
                                 const valAtual = typeof r.leitura_atual === 'string' ? parseFloat(r.leitura_atual) || 0 : r.leitura_atual
 
-                                const consumo = isDisabled ? 'N/A' : (valAtual - valAnterior).toFixed(3)
-                                const valorExibicao = isDisabled ? 0 : r.valor_calculado
-                                const isComplete = isDisabled || valAtual > 0
+                                const consumo = (valAtual - valAnterior).toFixed(3)
+                                const valorExibicao = r.valor_calculado
+                                const isComplete = valAtual > 0
 
                                 return (
-                                    <tr key={`${r.unitId}-${selectedMonth}`} style={isDisabled ? { backgroundColor: 'rgba(0,0,0,0.03)', opacity: 0.8 } : {}}>
+                                    <tr key={`${r.unitId}-${selectedMonth}`}>
                                         <td>
                                             <input
                                                 type="text"
@@ -250,13 +242,11 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                                 type="text"
                                                 className="reading-input no-print"
                                                 value={r.leitura_anterior}
-                                                disabled={isDisabled}
                                                 onChange={(e) => handlePreviousReadingChange(r.unitId, e.target.value)}
                                                 onBlur={(e) => handlePreviousReadingBlur(r.unitId, e.target.value)}
-                                                placeholder={isDisabled ? '-' : ''}
                                             />
                                             <span className="print-only" style={{ display: 'none' }}>
-                                                {isDisabled ? '-' : valAnterior.toFixed(3)}
+                                                {valAnterior.toFixed(3)}
                                             </span>
                                         </td>
                                         <td>
@@ -264,21 +254,17 @@ export default function Dashboard({ buildings, initialMonth }: { buildings: Buil
                                                 type="text"
                                                 className="reading-input no-print"
                                                 value={r.leitura_atual}
-                                                disabled={isDisabled}
                                                 onChange={(e) => handleReadingChange(r.unitId, e.target.value)}
                                                 onBlur={(e) => handleReadingBlur(r.unitId, e.target.value)}
-                                                placeholder={isDisabled ? 'SEM GÁS' : ''}
                                             />
                                             <span className="print-only" style={{ display: 'none' }}>
-                                                {isDisabled ? 'SEM GÁS' : valAtual.toFixed(3)}
+                                                {valAtual.toFixed(3)}
                                             </span>
                                         </td>
                                         <td>{consumo}</td>
                                         <td className="currency">{formatCurrency(valorExibicao)}</td>
                                         <td className="no-print">
-                                            {isDisabled ? (
-                                                <span className="status-badge" style={{ backgroundColor: '#e2e8f0', color: '#64748b' }}>Isento</span>
-                                            ) : isComplete ? (
+                                            {isComplete ? (
                                                 <span className="status-badge status-done">Concluído</span>
                                             ) : (
                                                 <span className="status-badge status-pending">Pendente</span>
